@@ -1,0 +1,20 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+.env
+client_secret.json
+client_secret*.json
+token.json
+# Generated output files
+*.pdf
+*.docx
+*.html
+temp_*.md
+tmp.md

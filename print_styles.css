@@ -1,0 +1,33 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+
+@page {
+    size: A4;
+    margin: 20mm;
+
+    @bottom-right {
+        content: "Page " counter(page);
+        font-family: 'Inter', sans-serif;
+        font-size: 9pt;
+        color: #888;
+    }
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    color: #2D3136;
+    line-height: 1.6;
+}
+
+h1 {
+    color: #1A365D;
+    /* Navy Brand Accent */
+    border-bottom: 2px solid #E2E8F0;
+    padding-bottom: 8px;
+    margin-top: 30px;
+}
+
+code {
+    background-color: #F7FAFC;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
