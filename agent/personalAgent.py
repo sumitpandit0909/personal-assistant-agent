@@ -2,15 +2,17 @@ import sys
 import asyncio
 from dataclasses import dataclass
 from pydantic_graph import End
-
+from datetime import datetime
 sys.stdout.reconfigure(encoding='utf-8')
 from pydantic_ai import Agent,UserPromptNode,ModelRequestNode,CallToolsNode,ToolCallPart
-from config.settings import setting 
+from config.settings import setting ,model
 from subagent.communication import GmailAuth,communication_agent
 from pydantic_ai.models.openrouter import OpenRouterModel
 from pydantic_ai.providers.openrouter import OpenRouterProvider
 from subagent.document import document_subagent
 from subagent.upload import document_upload_agent, R2Storage
+from subagent.planner import planner_subagent
+from subagent.research import research_subagent
 from pydantic_ai.capabilities import WebSearch
 from pydantic_ai_harness.subagents import SubAgents,SubAgent
 import logfire
@@ -24,10 +26,7 @@ class AgentDeps:
     gmail_auth: GmailAuth
     r2_storage: R2Storage
 
-model = OpenRouterModel(
-    "openrouter/free",
-    provider=OpenRouterProvider(api_key=setting.OPENROUTER_API_KEY)
-)
+
 
 personal_agent=Agent(
     model,
@@ -35,24 +34,37 @@ personal_agent=Agent(
     You are a helpful personal assistant.
     Assist the user in their day-to-day tasks by understanding their needs and responding in a helpful and organized manner.
     
-    You have access to the following subagents and tools:
-    1. document_subagent: Creates documents (PDFs, presentations, Word files) and returns the local file path.
-    2. document_upload_agent: Uploads local files to Cloudflare R2 cloud storage and returns the public URL.
-    3. communication_agent: Reads, drafts, and sends emails via Gmail.
-    4. duckduckgo_search: Searches the web for real-time information and links.
+    You have access to the following subagents:
+    1. planner_subagent: Analyzes user prompts and returns a structured, step-by-step ExecutionPlan.
+    2. research_subagent: Conducts web research to gather live data, facts, and structured content.
+    3. document_subagent: Compiles research into formatted documents (PDF, DOCX, Marp PPT) and returns local file paths.
+    4. document_upload_agent: Uploads local files to Cloudflare R2 storage and returns the public URL.
+    5. communication_agent: Reads, drafts, and sends emails via Gmail.
     
     Workflow Guidelines:
-    CRITICAL: When the user asks to create/generate a document or report and send or email the link, you MUST execute all 3 subagents in sequence using `delegate_task`:
-      1. STEP 1: Call `delegate_task` with `agent_name="document_subagent"` to generate the document file and get its local file_path.
-      2. STEP 2: Call `delegate_task` with `agent_name="document_upload_agent"` providing the local file_path from Step 1 to upload it to R2 and get the public URL.
-      3. STEP 3: Call `delegate_task` with `agent_name="communication_agent"` providing the recipient's email address and the public R2 URL from Step 2 to send the email.
-    
-    You MUST execute STEP 1, STEP 2, and STEP 3 in sequence. Do NOT stop after STEP 1!
-    - For web research or recommendations, use 'duckduckgo_search'.
+    1. STEP 1 (Planning): For any multi-step task, FIRST delegate to `planner_subagent` to break down the request into an ExecutionPlan.
+    2. STEP 2 (Execution): Sequentially execute each step in the generated plan by calling `delegate_task` for the assigned target subagent, passing outputs (data, file paths, URLs) from one step to the next.
+    3. STEP 3 (Response): Once all steps in the plan are complete, present a clear final summary to the user.
     """,
-    capabilities=[SubAgents(agents=[SubAgent(communication_agent),SubAgent(document_subagent),SubAgent(document_upload_agent)]),WebSearch(local='duckduckgo')]
+    capabilities=[
+        SubAgents(agents=[
+            SubAgent(planner_subagent),
+            SubAgent(research_subagent),
+            SubAgent(document_subagent),
+            SubAgent(document_upload_agent),
+            SubAgent(communication_agent)
+        ]),
+        WebSearch(local='duckduckgo')
+    ]
 )
 
+
+@personal_agent.tool_plain
+def get_realtime_and_date():
+    """
+    Get the current date and time.
+    """
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 r2 = R2Storage(
     access_key=setting.CLOUDFLARE_ACCESS_KEY_ID,
     secret_key=setting.CLOUDFLARE_SECRET_ACCESS_KEY_ID,
@@ -62,7 +74,7 @@ r2 = R2Storage(
 )
 
 async def run_personal_agent():
-    async with personal_agent.iter("create a report on crypto market and send th elink to my mail its.sumitpandith@gmail.com", deps=AgentDeps(GmailAuth(),r2)) as nodes:
+    async with personal_agent.iter("check if i had received any mail from skylar henderson in last 1 week if received pleasy give me the summary what it says", deps=AgentDeps(GmailAuth(),r2)) as nodes:
         async for node in nodes:
             if isinstance(node,UserPromptNode):
                 print(f"[Initialising] user prompt: {node.user_prompt}")

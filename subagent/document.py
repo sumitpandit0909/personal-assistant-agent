@@ -10,7 +10,7 @@ from pydantic_ai.models.openrouter import OpenRouterModel
 from pydantic_ai.providers.openrouter import OpenRouterProvider
 from dataclasses import dataclass
 from pydantic import BaseModel,Field
-from config.settings import setting
+from config.settings import setting,model
 
 class RenderSlideRequest(BaseModel):
     markdown_content:str=Field(...,description="The full Marp-compliant markdonw string represeting all slides, starting with the frontmatter header (e.g '---marp:true \\n theme:gaia \\n---') ")
@@ -34,6 +34,8 @@ productivity_toolset = FunctionToolset()
 @productivity_toolset.tool_plain()
 async def create_pdf(request:CreatePdfRequest):
     try:
+        safe_filename = os.path.basename(request.filename)
+        abs_path = os.path.abspath(safe_filename)
         html_body = markdown(request.markdown_content,extensions=['tables', 'fenced_code'])
         full_html=f"""
         <!DOCTYPE html>
@@ -48,13 +50,15 @@ async def create_pdf(request:CreatePdfRequest):
         </html>
         """
         HTML(string=full_html).write_pdf(request.filename)
-        return f"Successfully converted markdown to pdf: {os.path.abspath(request.filename)}"
+        return f"Successfully converted markdown to pdf: {abs_path}"
     except Exception as e:
         return f"An error occurred: {str(e)}"
     
 @productivity_toolset.tool_plain()
 async def create_docx(request:CreateDocxRequest):
     try:
+        safe_filename = os.path.basename(request.filename)
+        abs_path = os.path.abspath(safe_filename)
         tmp_file = "tmp.md"
         with open(tmp_file,"w",encoding="utf-8") as file:
             file.write(request.markdown_content)
@@ -72,7 +76,7 @@ async def create_docx(request:CreateDocxRequest):
             os.remove(tmp_file)
             
         if result.returncode == 0:
-            return f"Successfully converted markdown to docx: {os.path.abspath(output_path)}"
+            return f"Successfully converted markdown to docx: {abs_path}"
         else:
             return f"Error converting markdown to docx:\n{result.stderr}"
             
@@ -86,6 +90,8 @@ async def render_slides(request: RenderSlideRequest) -> str:
     temp_md_path = "temp_presentation.md"
 
     try:
+        safe_filename = os.path.basename(request.filename)
+        abs_path = os.path.abspath(safe_filename)
         with open(temp_md_path, "w", encoding="utf-8") as f:
             f.write(request.markdown_content)
 
@@ -96,7 +102,7 @@ async def render_slides(request: RenderSlideRequest) -> str:
             os.remove(temp_md_path)
 
         if result.returncode == 0:
-            return f"Successfully converted markdown to HTML: {os.path.abspath(request.filename)}"
+            return f"Successfully converted markdown to HTML: {abs_path}"
         else:
             return f"Error converting markdown to HTML:\n{result.stderr}"
             
@@ -104,17 +110,6 @@ async def render_slides(request: RenderSlideRequest) -> str:
         if os.path.exists(temp_md_path):
             os.remove(temp_md_path)
         return f"An error occurred: {str(e)}"
-
-
-model = OpenRouterModel(
-    "openrouter/free",
-    provider=OpenRouterProvider(api_key=setting.OPENROUTER_API_KEY)
-)
-
-class SubagentResponse(BaseModel):
-    success:bool= Field(...,description="whether the document generation was success or failed")
-    message:str= Field(...,description="message document created succesfful with doctype or if failed reason of failing")
-    file_path:str=Field(...,description="absoulute file path of the created document")
 
 document_subagent = Agent(
     model,
@@ -141,7 +136,7 @@ document_subagent = Agent(
             - When asked to write a Word document, a report in Word, or a .docx file, write the content in standard clean Markdown.
             - Call the 'create_docx' tool to compile it using pandoc.
             
-            4. After creating the file, return the absolute file path in your SubagentResponse output.
+            4. After creating the file, return the correct absolute file path in your SubagentResponse output. 
             Always select the correct tool for the specific output format requested by the user.
         """,
         toolsets=[productivity_toolset]

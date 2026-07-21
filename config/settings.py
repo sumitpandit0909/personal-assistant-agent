@@ -1,6 +1,7 @@
 from pydantic import ConfigDict
 from pydantic_settings import BaseSettings,SettingsConfigDict
-
+from pydantic_ai.models.openrouter import OpenRouterModel
+from pydantic_ai.providers.openrouter import OpenRouterProvider
 class env_settings(BaseSettings):
     OPENROUTER_API_KEY :str
     CLOUDFLARE_TOKEN :str
@@ -18,3 +19,7 @@ class env_settings(BaseSettings):
 setting = env_settings()
 
 
+model = OpenRouterModel(
+    "deepseek/deepseek-v4-flash",
+    provider=OpenRouterProvider(api_key=setting.OPENROUTER_API_KEY)
+)

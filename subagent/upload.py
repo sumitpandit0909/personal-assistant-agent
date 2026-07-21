@@ -15,7 +15,7 @@ from pydantic_ai import Agent, FunctionToolset, ModelSettings, RunContext
 from pydantic_ai.capabilities import AbstractCapability
 from pydantic_ai.models.openrouter import OpenRouterModel
 from pydantic_ai.providers.openrouter import OpenRouterProvider
-from config.settings import setting
+from config.settings import setting,model
 
 
 @dataclass(slots=True)
@@ -113,10 +113,6 @@ async def upload_file_to_r2(
 
     return storage.upload(request.file_path)
 
-model = OpenRouterModel(
-    "openrouter/free",
-    provider=OpenRouterProvider(api_key=setting.OPENROUTER_API_KEY)
-)
 
 document_upload_agent = Agent[R2Storage,SubagentResponse](
     model,
@@ -126,12 +122,10 @@ document_upload_agent = Agent[R2Storage,SubagentResponse](
     output_type=SubagentResponse,
     toolsets=[utilities_toolset],
     instructions="""
-        You can upload local files to Cloudflare R2.
+        You are an upload agent that uploads local files to Cloudflare R2 cloud storage.
 
-        Whenever a file is generated (PDF, PPT, DOCX, HTML, ZIP, etc.)
-        and the user asks to upload or share it,
-        call upload_file_to_r2.
-
-        Always provide the local file path.
+        1. Call 'upload_file_to_r2' providing the absolute file_path of the local file.
+        2. Take the exact public URL returned by the 'upload_file_to_r2' tool call and return it in your SubagentResponse `url` field.
+        3. Set `success=True` and provide a descriptive `message`.
         """
 )

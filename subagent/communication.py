@@ -16,7 +16,7 @@ import os.path
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
-
+from config.settings import model
 
 # dependency
 @dataclass
@@ -176,10 +176,7 @@ async def read_email(ctx:RunContext[Any],request:ReadEmail):
     except HttpError as err:
         return f"An error occured while reading emails: {err}"
 
-model = OpenRouterModel(
-    "openrouter/free",
-    provider=OpenRouterProvider(api_key=setting.OPENROUTER_API_KEY)
-)
+
 
 communication_agent = Agent[GmailAuth,SubagentResponse](
     model,
