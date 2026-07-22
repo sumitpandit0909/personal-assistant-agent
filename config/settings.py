@@ -10,6 +10,10 @@ class env_settings(BaseSettings):
     CLOUDFLARE_R2_ENDPOINT :str
     CLOUDFLARE_R2_BUCKET: str | None = None
     CLOUDFLARE_R2_PUBLIC_URL: str | None = None
+    DATABASE_URL: str = "sqlite:///./local_assistant.db"  # Fallback to SQLite if Supabase URL is not set
+    REDIS_URL: str = "redis://localhost:6379/0"
+    QDRANT_URL: str = "http://localhost:6333"
+    QDRANT_API_KEY: str | None = None
 
     model_config=SettingsConfigDict(
         env_file=".env",

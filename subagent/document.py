@@ -1,14 +1,9 @@
-from distro import name
-from anthropic.types.beta.deployment_create_params import Agent
 import os
+from tasks.backgorund_tasks import create_pdf_task, create_docx_task, render_slide_task
 import subprocess
 from markdown import markdown
 from weasyprint import HTML
-from pydantic_ai.capabilities import AbstractCapability
-from pydantic_ai import FunctionToolset, ModelSettings,Agent
-from pydantic_ai.models.openrouter import OpenRouterModel
-from pydantic_ai.providers.openrouter import OpenRouterProvider
-from dataclasses import dataclass
+from pydantic_ai import FunctionToolset,Agent
 from pydantic import BaseModel,Field
 from config.settings import setting,model
 
@@ -31,85 +26,31 @@ class SubagentResponse(BaseModel):
 
 productivity_toolset = FunctionToolset()
 
+
 @productivity_toolset.tool_plain()
-async def create_pdf(request:CreatePdfRequest):
+async def create_pdf(request: CreatePdfRequest):
     try:
-        safe_filename = os.path.basename(request.filename)
-        abs_path = os.path.abspath(safe_filename)
-        html_body = markdown(request.markdown_content,extensions=['tables', 'fenced_code'])
-        full_html=f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <link rel="stylesheet" href="print_styles.css">
-        </head>
-        <body>
-            {html_body}
-        </body>
-        </html>
-        """
-        HTML(string=full_html).write_pdf(request.filename)
-        return f"Successfully converted markdown to pdf: {abs_path}"
+        task = create_pdf_task.delay(request.markdown_content, request.filename)
+        return f"task created to create pdf: {task.id}"
     except Exception as e:
         return f"An error occurred: {str(e)}"
-    
-@productivity_toolset.tool_plain()
-async def create_docx(request:CreateDocxRequest):
-    try:
-        safe_filename = os.path.basename(request.filename)
-        abs_path = os.path.abspath(safe_filename)
-        tmp_file = "tmp.md"
-        with open(tmp_file,"w",encoding="utf-8") as file:
-            file.write(request.markdown_content)
-        output_path = request.filename
-        cmd =[
-            "pandoc",
-            tmp_file,
-            "-o",
-            output_path,
-            "--reference-doc=custom_reference.docx"
-        ]
-        result = subprocess.run(cmd, capture_output=True, text=True, shell=True)
 
-        if os.path.exists(tmp_file):
-            os.remove(tmp_file)
-            
-        if result.returncode == 0:
-            return f"Successfully converted markdown to docx: {abs_path}"
-        else:
-            return f"Error converting markdown to docx:\n{result.stderr}"
-            
+@productivity_toolset.tool_plain()
+async def create_docx(request: CreateDocxRequest):
+    try:
+        task = create_docx_task.delay(request.markdown_content, request.filename)
+        return f"task created to create docx: {task.id}"
     except Exception as e:
-        if os.path.exists(request.filename):
-            os.remove(request.filename)
         return f"An error occurred: {str(e)}"
 
 @productivity_toolset.tool_plain(retries=2)
 async def render_slides(request: RenderSlideRequest) -> str:
-    temp_md_path = "temp_presentation.md"
-
     try:
-        safe_filename = os.path.basename(request.filename)
-        abs_path = os.path.abspath(safe_filename)
-        with open(temp_md_path, "w", encoding="utf-8") as f:
-            f.write(request.markdown_content)
-
-        cmd = ["npx", "-y", "@marp-team/marp-cli@latest", temp_md_path, "-o", request.filename]
-        result = subprocess.run(cmd, capture_output=True, text=True, shell=True)
-
-        if os.path.exists(temp_md_path):
-            os.remove(temp_md_path)
-
-        if result.returncode == 0:
-            return f"Successfully converted markdown to HTML: {abs_path}"
-        else:
-            return f"Error converting markdown to HTML:\n{result.stderr}"
-            
+        task = render_slide_task.delay(request.markdown_content, request.filename)
+        return f"task created to render slides: {task.id}"
     except Exception as e:
-        if os.path.exists(temp_md_path):
-            os.remove(temp_md_path)
         return f"An error occurred: {str(e)}"
+
 
 document_subagent = Agent(
     model,

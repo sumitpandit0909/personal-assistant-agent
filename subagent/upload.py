@@ -1,7 +1,7 @@
 from __future__ import annotations
+from tasks.backgorund_tasks import upload_r2_task
 
 import mimetypes
-import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -11,10 +11,7 @@ import boto3
 import logfire
 from botocore.client import BaseClient
 from pydantic import BaseModel, Field
-from pydantic_ai import Agent, FunctionToolset, ModelSettings, RunContext
-from pydantic_ai.capabilities import AbstractCapability
-from pydantic_ai.models.openrouter import OpenRouterModel
-from pydantic_ai.providers.openrouter import OpenRouterProvider
+from pydantic_ai import Agent, FunctionToolset, RunContext
 from config.settings import setting,model
 
 
@@ -99,19 +96,13 @@ utilities_toolset = FunctionToolset[R2Storage]()
 
 
 @utilities_toolset.tool
-async def upload_file_to_r2(
-    ctx: RunContext[Any],
-    request: UploadFileRequest,
-) -> str:
-    """
-    Upload a local file to Cloudflare R2.
+async def upload_file_to_r2(ctx: RunContext[Any], request: UploadFileRequest) -> str:
+    try:
+        task = upload_r2_task.delay(request.file_path)
+        return f"task created to upload file to R2: {task.id}"
+    except Exception as e:
+        raise Exception(f"Failed to upload file to R2: {str(e)}")
 
-    Returns the public URL.
-    """
-
-    storage = ctx.deps.r2_storage
-
-    return storage.upload(request.file_path)
 
 
 document_upload_agent = Agent[R2Storage,SubagentResponse](

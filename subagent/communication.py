@@ -1,15 +1,8 @@
-from pydantic_ai import ModelSettings
-from pydantic_ai.capabilities import AbstractCapability
 from typing import List,Any
 from pydantic import BaseModel,Field
 from pydantic_ai import FunctionToolset
 from dataclasses import dataclass
 from pydantic_ai import RunContext,Agent
-from pydantic_ai.models.openrouter import OpenRouterModel
-from pydantic_ai.providers.openrouter import OpenRouterProvider
-from config.settings import setting
-import base64
-from email.message import EmailMessage
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 import os.path
@@ -17,6 +10,7 @@ from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from config.settings import model
+from tasks.backgorund_tasks import send_email_task, draft_email_task
 
 # dependency
 @dataclass
@@ -76,59 +70,16 @@ def get_gmail_credentials():
 # email toolset
 email_tools = FunctionToolset[Any]()
 
-# send email tool
 @email_tools.tool
-async def send_email(ctx:RunContext[Any],request:SendEmail):
-    
-    creds = ctx.deps.gmail_auth.credentials
-    if not creds:
-        creds = get_gmail_credentials()
-    try:
-        service = build("gmail", "v1", credentials=creds)
-        message = EmailMessage()
-        message.set_content(request.body)
-        message["To"] = ", ".join(request.to)
-        message["Subject"] = request.subject
-        
-        encoded_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
-        create_message = {"raw": encoded_message}
-        
-        send_message =(
-            service.users()
-            .messages()
-            .send(userId="me",body =create_message)
-            .execute()
-        )
-        return f"Email sent successfully. MessageID: {send_message['id']}"
-    except HttpError as err:
-        return f"An error occured while sending email : {err}"
-
-#  draft email tool
+async def send_email(ctx: RunContext[Any], request: SendEmail):
+    # Trigger background Celery task (fire-and-forget)
+    task = send_email_task.delay(request.to, request.subject, request.body)
+    return f"Email has been successfully queued for background delivery.{task.id}"
 @email_tools.tool
-async def draft_email(ctx:RunContext[Any],request:SendEmail):
-    creds = ctx.deps.gmail_auth.credentials
-    if not creds:
-        creds = get_gmail_credentials()
-    try:
-        service = build("gmail", "v1", credentials=creds)
-        message = EmailMessage()
-        message.set_content(request.body)
-        message["To"] = ", ".join(request.to)
-        message["Subject"] = request.subject
-        
-        encoded_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
-        create_message = {"raw": encoded_message}
-
-        draft = (
-            service.users()
-            .drafts()
-            .create(userId="me",body={"message":create_message})
-            .execute()
-        )
-        return f"Draft created successfully with message ID: {draft['id']}"
-    except HttpError as err:
-        return f"An error occured while creating draft : {err}"
-        
+async def draft_email(ctx: RunContext[Any], request: SendEmail):
+    # Trigger background Celery task
+    task =draft_email_task.delay(request.to, request.subject, request.body)
+    return f"Email draft is being created in the background.{task.id}"    
 # read email tool 
 @email_tools.tool
 async def read_email(ctx:RunContext[Any],request:ReadEmail):
