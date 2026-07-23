@@ -165,9 +165,29 @@ async def get_chat_history(session_id: UUID):
         ).all()
         return messages
 
+@app.get("/tasks/all/{email}")
+async def get_user_tasks(email: str):
+    """Retrieves all historical background tasks for a user by their email."""
+    with Session(engine) as session:
+        user = session.exec(select(User).where(User.email == email.strip().lower())).first()
+        if not user:
+            return []
+        tasks = session.exec(
+            select(Task)
+            .where(Task.user_id == user.id)
+            .order_by(Task.created_at.desc())
+        ).all()
+        return [
+            {
+                "task_id": task.id,
+                "status": task.status,
+                "result": task.result,
+                "download_link": task.link,
+                "created_at": task.created_at
+            }
+            for task in tasks
+        ]
 
-
-# 🟢 API to list historical sessions for a user's email
 @app.get("/sessions/{email}")
 async def get_user_sessions(email: str):
     """List all chat sessions for a user by email."""
@@ -186,7 +206,6 @@ async def get_user_sessions(email: str):
 # Simple email validation pattern
 EMAIL_REGEX = re.compile(r'^[\w\.-]+@[\w\.-]+\.\w+$')
 
-# 🟢 Telegram Webhook Endpoint
 @app.post("/telegram")
 async def telegram_webhook(request: Request):
     """Webhook to receive messages from the Telegram bot and route them to Vanshu."""
