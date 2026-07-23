@@ -70,15 +70,17 @@ email_tools = FunctionToolset[Any]()
 
 @email_tools.tool
 async def send_email(ctx: RunContext[Any], request: SendEmail):
-    # Trigger background Celery task (fire-and-forget)
+    # trigger background Celery task (fire-and-forget)
     task = send_email_task.delay(request.to, request.subject, request.body)
     return f"Email has been successfully queued for background delivery.{task.id}"
+
 @email_tools.tool
 async def draft_email(ctx: RunContext[Any], request: SendEmail):
-    # Trigger background Celery task
+    # trigger background Celery task
     task =draft_email_task.delay(request.to, request.subject, request.body)
     return f"Email draft is being created in the background.{task.id}"    
 # read email tool 
+
 @email_tools.tool
 async def read_email(ctx:RunContext[Any],request:ReadEmail):
     creds = ctx.deps.gmail_auth.credentials

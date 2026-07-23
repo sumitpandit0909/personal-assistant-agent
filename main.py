@@ -7,12 +7,12 @@ from memory.redis_memory import RedisMemory
 from memory.qdrant_memory import QdrantMemory
 from subagent.upload import R2Storage
 from subagent.communication import GmailAuth
-from agent.personalAgent import personal_agent, AgentDeps, execute_dynamic_workflow
+from agent.personalAgent import personal_agent, AgentDeps
 import os
 from contextlib import asynccontextmanager
-from typing import Optional, List
-from uuid import UUID, uuid4
-from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks,Request
+from typing import Optional
+from uuid import UUID
+from fastapi import FastAPI, HTTPException,Request
 from fastapi.responses import HTMLResponse 
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -21,6 +21,7 @@ from datetime import datetime
 import httpx
 import re
 import asyncio
+from fastapi.middleware.cors import CORSMiddleware
 
 @asynccontextmanager
 async def lifespan(app:FastAPI):
@@ -34,6 +35,14 @@ app =FastAPI(
     version="1.0.0",
     lifespan=lifespan
     )
+
+
+app.add_middleware(
+     CORSMiddleware,
+     allow_origins=["*"],
+     allow_credentials=True,
+    allow_methods=["*"],allow_headers=["*"],
+ )
 
 if os.path.exists("frontend/dist/assets"):
     app.mount("/assets", StaticFiles(directory="frontend/dist/assets"), name="assets")
