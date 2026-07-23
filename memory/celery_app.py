@@ -12,7 +12,7 @@ from config.settings import setting
 celery_app = Celery(
     "assistant_task",
     broker=setting.REDIS_URL,
-    backend='redis://localhost:6379/1',
+    backend=setting.REDIS_URL,
     include=["tasks.backgorund_tasks"]
 )
 
