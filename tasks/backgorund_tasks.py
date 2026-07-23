@@ -359,9 +359,6 @@ def draft_email_task(self,*args, **kwargs):
     except HttpError as err:
         update_task_status(self.request.id, status="failed", result=f"An error occured while creating draft : {err}")
 
-
-
-
 @celery_app.task(bind=True, name="tasks.research_task")
 def research_task(self, query: str) -> dict:
     update_task_status(self.request.id, status="processing", result="Researching topic on the web...")

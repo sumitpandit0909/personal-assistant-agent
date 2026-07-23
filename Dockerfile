@@ -1,15 +1,14 @@
-# 1. Use the official slim Python base image
-FROM python:3.12-slim
+# 1. Use the official full Python base image (has build-essential & compiler pre-installed)
+FROM python:3.12
 
-# 2. Install system dependencies for WeasyPrint and Pandoc
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    python3-dev \
+# 2. Install WeasyPrint and Pandoc dependencies with robust error handling
+RUN apt-get clean && \
+    apt-get update --fix-missing && \
+    apt-get install -y --no-install-recommends \
     libcairo2 \
     libpango-1.0-0 \
     libpangocairo-1.0-0 \
     libgdk-pixbuf2.0-0 \
-    libffi-dev \
     shared-mime-info \
     pandoc \
     && rm -rf /var/lib/apt/lists/*
