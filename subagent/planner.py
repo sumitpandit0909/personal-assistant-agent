@@ -98,11 +98,11 @@ planner_subagent = Agent[None, DynamicWorkflowPlan](
          
        * `tasks.send_email_task`:
          - Description: Sends an email with the R2 link.
-         - Allowed `kwargs`: `{}` (Receives `UploadOutputData` automatically from the previous task, which contains the email body, to, and subject from research).
+         - Allowed `kwargs`: `{"to": "<recipient email>", "subject": "<email subject>"}` (If the user specified an email address, extract it and pass it in "to" to ensure delivery goes to the correct address).
          
        * `tasks.draft_email_task`:
          - Description: Drafts an email with the R2 link.
-         - Allowed `kwargs`: `{}` (Receives `UploadOutputData` automatically).
+         - Allowed `kwargs`: `{"to": "<recipient email>", "subject": "<email subject>"}` (If the user specified an email address, extract it and pass it in "to").
     """
 
 )

@@ -75,9 +75,8 @@ class QdrantMemory:
         )
         result=""
         for hit in results:
-            score = hit.score
             fact = hit.payload["fact"]
-            result +=f"- {fact} score: {score}\n\n"
+            result +=f"- {fact} \n\n"
         return result
             
         

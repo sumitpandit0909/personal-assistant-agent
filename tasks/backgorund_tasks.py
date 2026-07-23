@@ -262,8 +262,8 @@ def send_email_task(self,*args, **kwargs):
         body = research.body or ""
         if url:
             body += f"\n\n### Attached Report\n{url}"
-        to = research.to
-        subject = research.subject
+        to = kwargs.get("to") or research.to
+        subject = kwargs.get("subject") or research.subject
     else:
         # Fallback to kwargs
         to = kwargs.get("to")
@@ -320,8 +320,8 @@ def draft_email_task(self,*args, **kwargs):
         body = research.body or ""
         if url:
             body += f"\n\n### Attached Report\n{url}"
-        to = research.to
-        subject = research.subject
+        to = kwargs.get("to") or research.to
+        subject = kwargs.get("subject") or research.subject
     else:
         # Fallback to kwargs
         to = kwargs.get("to")
