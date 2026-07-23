@@ -17,6 +17,9 @@ services:
       - .env
     environment:
       - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ./token.json:/app/token.json
+      - ./client_secret.json:/app/client_secret.json
     depends_on:
       - redis
     restart: always
@@ -29,6 +32,9 @@ services:
       - .env
     environment:
       - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ./token.json:/app/token.json
+      - ./client_secret.json:/app/client_secret.json
     depends_on:
       - redis
     restart: always
