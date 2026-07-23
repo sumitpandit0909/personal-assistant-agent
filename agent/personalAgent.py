@@ -68,18 +68,55 @@ personal_agent = Agent[AgentDeps](
 )
 
 @personal_agent.system_prompt
-async def inject_memories(ctx:RunContext[AgentDeps])-> str:
+async def inject_memories(ctx: RunContext[AgentDeps]) -> str:
     """
-    Before every prompt , injecr relevant facts retrived from Qdrant vector memory.
+    Before every prompt, inject relevant facts retrieved from Qdrant vector memory
+    and the recent short-term conversation history from Redis.
     """
+    prompts = []
+    
+    # 1. Fetch long-term user preferences from Qdrant
     try:
-        recalled=ctx.deps.qdrant_mem.recall_facts(user_id=ctx.deps.user_id,
-        query=ctx.prompt,top_k=5)
+        recalled = ctx.deps.qdrant_mem.recall_facts(
+            user_id=ctx.deps.user_id,
+            query=ctx.prompt,
+            top_k=5
+        )
         if recalled:
-            return f"\n[Recalled Memories & User Preferences]:\n{recalled}\n"
+            prompts.append(f"[Recalled Long-Term Memories & User Preferences]:\n{recalled}")
     except Exception as e:
-        print(f"[Memory Warning] Failed to recall facts: {e}")
-    return ""
+        print(f"[Memory Warning] Failed to recall facts from Qdrant: {e}")
+        
+    # 2. Fetch short-term recent chat history from Redis
+    try:
+        history = ctx.deps.redis_mem.get_messages(ctx.deps.session_id, count=15)
+        if history:
+            history_str = "\n".join(
+                f"- {msg['role'].capitalize()}: {msg['content']}"
+                for msg in history
+            )
+            prompts.append(f"[Recent Conversation History]:\n{history_str}")
+    except Exception as e:
+        print(f"[Memory Warning] Failed to fetch short-term history from Redis: {e}")
+        
+    return "\n\n".join(prompts) if prompts else ""
+
+
+# @personal_agent.system_prompt
+# async def inject_memories(ctx:RunContext[AgentDeps])-> str:
+#     """
+#     Before every prompt , injecr relevant facts retrived from Qdrant vector memory.
+#     """
+#     try:
+#         recalled=ctx.deps.qdrant_mem.recall_facts(user_id=ctx.deps.user_id,
+#         query=ctx.prompt,top_k=5)
+#         if recalled:
+#             return f"\n[Recalled Memories & User Preferences]:\n{recalled}\n"
+#     except Exception as e:
+#         print(f"[Memory Warning] Failed to recall facts: {e}")
+    
+    
+#     return ""
 
 @personal_agent.tool
 async def remember_user_preference(ctx: RunContext[AgentDeps], preference_text: str) -> str:
