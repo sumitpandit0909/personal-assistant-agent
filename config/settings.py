@@ -1,4 +1,4 @@
-from pydantic import ConfigDict
+from typing import Optional
 from pydantic_settings import BaseSettings,SettingsConfigDict
 from pydantic_ai.models.openrouter import OpenRouterModel
 from pydantic_ai.providers.openrouter import OpenRouterProvider
@@ -17,6 +17,7 @@ class env_settings(BaseSettings):
     REDIS_URL: str
     QDRANT_URL: str
     QDRANT_API_KEY: str | None = None
+    TELEGRAM_BOT_TOKEN: Optional[str] = None 
 
     model_config=SettingsConfigDict(
         env_file=".env",

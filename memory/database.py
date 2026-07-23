@@ -9,6 +9,7 @@ class User(SQLModel,table=True):
     id: UUID =Field(default_factory=uuid4,primary_key=True)
     email:str =Field(unique=True,index=True)
     name:str
+    telegram_id: Optional[str] = Field(default=None, unique=True, index=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     # relationship 
     sessions : List["ChatSession"] =Relationship(back_populates="user")
@@ -60,6 +61,10 @@ engine = create_engine(setting.DATABASE_URL)
 
 def init_db():
     SQLModel.metadata.create_all(engine)
+    from sqlalchemy import text
+    with engine.connect() as conn:
+        conn.execute(text('ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "telegram_id" VARCHAR(255) UNIQUE;'))
+        conn.commit()
 def get_session():
     with Session(engine) as session:
         yield session

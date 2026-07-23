@@ -18,3 +18,4 @@ token.json
 *.html
 temp_*.md
 tmp.md
+frontend/

@@ -59,7 +59,7 @@ def create_pdf_task(self,*args, **kwargs):
         base_name, _ = os.path.splitext(chosen_filename)
         safe_filename = os.path.basename(base_name + ".pdf")
         abs_path = os.path.abspath(safe_filename)
-        html_body = markdown(data.content,extensions=['tables', 'fenced_code'])
+        html_body = markdown(markdown_content,extensions=['tables', 'fenced_code'])
         full_html=f"""
         <!DOCTYPE html>
         <html>
@@ -76,7 +76,11 @@ def create_pdf_task(self,*args, **kwargs):
         
         output = DocumentOutput(file_path=abs_path,research_data=research_data)
         update_task_status(self.request.id,status="completed",result="Pdf created successfully",link=abs_path)
-        return output.model_dump()
+        if research_data:
+            output = DocumentOutput(file_path=abs_path, research_data=research_data)
+            return output.model_dump()
+        else:
+            return abs_path
     except Exception as e:
         update_task_status(self.request.id,status="failed",result=str(e))
         raise e
@@ -108,7 +112,7 @@ def create_docx_task(self,*args, **kwargs):
         abs_path = os.path.abspath(safe_filename)
         tmp_file = "tmp.md"
         with open(tmp_file,"w",encoding="utf-8") as file:
-            file.write(data.content)
+            file.write(markdown_content)
         output_path = abs_path
         cmd =[
             "pandoc",
@@ -124,7 +128,11 @@ def create_docx_task(self,*args, **kwargs):
         output = DocumentOutput(file_path=output_path,research_data=research_data)
         if result.returncode == 0:
             update_task_status(self.request.id,status="completed",result="successfully converted to docx",link=abs_path)
-            return output.model_dump()
+            if research_data:
+                output = DocumentOutput(file_path=abs_path, research_data=research_data)
+                return output.model_dump()
+            else:
+                return abs_path
         else:
             update_task_status(self.request.id,status="failed",result="error converting to docx")
             raise Exception(result.stderr)
@@ -163,7 +171,7 @@ def render_slide_task(self,*args, **kwargs):
         safe_filename = os.path.basename(base_name + ".html")
         abs_path = os.path.abspath(safe_filename)
         with open(temp_md_path, "w", encoding="utf-8") as f:
-            f.write(data.content)
+            f.write(markdown_content)
 
         cmd = ["npx", "-y", "@marp-team/marp-cli@latest", temp_md_path, "-o", abs_path]
         result = subprocess.run(cmd, capture_output=True, text=True, shell=True)
@@ -174,7 +182,11 @@ def render_slide_task(self,*args, **kwargs):
         if result.returncode == 0:
             output = DocumentOutput(file_path=abs_path,research_data=research_data)
             update_task_status(self.request.id, status="completed",result="presentation created successfully",link=abs_path)
-            return output.model_dump()
+            if research_data:
+                output = DocumentOutput(file_path=abs_path, research_data=research_data)
+                return output.model_dump()
+            else:
+                return abs_path
         else:
             update_task_status(self.request.id, status="failed",result="error creating presentation")
             raise Exception(result.stderr)
@@ -201,7 +213,7 @@ def upload_r2_task(self, *args, **kwargs):
     else:
         file_path = kwargs.get("file_path") or kwargs.get("document_data", {}).get("file_path")
         research_data = kwargs.get("document_data", {}).get("research_data")
-    file_path = data.file_path
+    
     update_task_status(self.request.id, status="processing", result="Uploading file to R2...")
     
     try:
@@ -220,7 +232,11 @@ def upload_r2_task(self, *args, **kwargs):
         output = UploadOutputData(url=public_url,research_data=data.research_data)
         # 4. Save success status and public URL link
         update_task_status(self.request.id, status="completed", result="Upload successful", link=public_url)
-        return output.model_dump()
+        if research_data:
+            output = UploadOutputData(url=public_url, research_data=research_data)
+            return output.model_dump()
+        else:
+            return public_url
         
     except Exception as exc:
         # 5. Handle retry or log failure
