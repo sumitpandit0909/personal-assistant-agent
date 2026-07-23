@@ -2,7 +2,7 @@ from pydantic_ai import Agent, RunContext
 from pydantic import BaseModel, Field
 from config.settings import setting,model
 from pydantic_ai.capabilities import WebSearch
-from typing import List
+from typing import List,Optional
 class SubagentResponse(BaseModel):
     success: bool = Field(
         ..., 
@@ -20,6 +20,10 @@ class SubagentResponse(BaseModel):
         ..., 
         description="Detailed, structured Markdown research content containing all facts, data, and sections ready for document generation."
     )
+    filename:Optional[str] =Field(description="name of the file")
+    to:Optional[str]= Field(description="email of the reciepient")
+    subject:Optional[str]= Field(description="subject of the email")
+    body:Optional[str]= Field(description="body of the email")
     sources: List[str] = Field(
         default_factory=list, 
         description="List of web URLs and references gathered during search."

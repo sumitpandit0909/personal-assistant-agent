@@ -11,27 +11,27 @@ class User(SQLModel,table=True):
     name:str
     created_at: datetime = Field(default_factory=datetime.utcnow)
     # relationship 
-    sessions = List["ChatSession"] =Relationship(back_populates="user")
-    
+    sessions : List["ChatSession"] =Relationship(back_populates="user")
+    tasks: List["Task"] = Relationship(back_populates="user")
 
 class ChatSession(SQLModel,table=True):
     id: UUID =Field(default_factory=uuid4,primary_key=True)
-    user_id = UUID =Field(foreign_key="user.id")
+    user_id : UUID =Field(foreign_key="user.id")
     title: Optional[str]="New Chat Session"
     created_at:datetime = Field(default_factory=datetime.utcnow)
     #relationship
-    user = Optional["User"]= Relationship(back_populates="sessions")
-    messages =List["Message"] =Relationship(back_populates="session")
+    user : Optional["User"]= Relationship(back_populates="sessions")
+    messages :List["Message"] =Relationship(back_populates="session")
 
 
 class Message(SQLModel,table=True):
     id:UUID=Field(default_factory=uuid4,primary_key=True)
-    session_id:Optional[UUID]=Field(default=None,foreign_key="chatssession.id")
+    session_id:Optional[UUID]=Field(default=None,foreign_key="chatsession.id")
     role:str=Field(...,description="user,assistant,tool,or system")
     content:str =Field(...)
     created_at:datetime=Field(default_factory=datetime.utcnow)
     #relationship
-    session=Optional["ChatSession"]= Relationship(back_populates="messages")
+    session:Optional["ChatSession"]= Relationship(back_populates="messages")
 
 
 class DocumentRecord(SQLModel, table=True):
@@ -67,7 +67,6 @@ def get_session():
 
 # helper function 
 
-# memory/database.py
 
 def get_or_create_user(email: str, name: str) -> User:
     with Session(engine) as session:

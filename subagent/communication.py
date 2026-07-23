@@ -65,8 +65,6 @@ def get_gmail_credentials():
     return creds
 
 
-
-
 # email toolset
 email_tools = FunctionToolset[Any]()
 

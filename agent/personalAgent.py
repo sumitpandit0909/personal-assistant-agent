@@ -1,17 +1,17 @@
+from uuid import uuid4
 from pydantic_ai import RunContext
 from memory.database import create_task_record
 from uuid import UUID
+from typing import Optional
 import sys
 import asyncio
 from dataclasses import dataclass
 from pydantic_graph import End
 from datetime import datetime
 sys.stdout.reconfigure(encoding='utf-8')
-from pydantic_ai import Agent,UserPromptNode,ModelRequestNode,CallToolsNode,ToolCallPart
-from config.settings import setting ,model
+from pydantic_ai import Agent
+from config.settings import model
 from subagent.communication import GmailAuth,communication_agent
-from pydantic_ai.models.openrouter import OpenRouterModel
-from pydantic_ai.providers.openrouter import OpenRouterProvider
 from subagent.document import document_subagent
 from subagent.upload import document_upload_agent, R2Storage
 from subagent.planner import planner_subagent
@@ -22,7 +22,6 @@ import logfire
 from celery import chain, signature
 from memory.redis_memory import RedisMemory
 from memory.qdrant_memory import QdrantMemory
-from memory.database import get_session,inti_db,Message,ChatSession,User,Task
 
 logfire.configure()
 logfire.instrument_system_metrics()
@@ -36,6 +35,9 @@ class AgentDeps:
     qdrant_mem: QdrantMemory
     user_id: str
     session_id: str
+    active_task_id: Optional[str] = None    # 🟢 ADD THIS
+    execution_mode: Optional[str] = None    # 🟢 ADD THIS
+
 
 
 
@@ -43,16 +45,16 @@ personal_agent = Agent[AgentDeps](
     model,
     deps_type=AgentDeps,
     instructions="""
-    You are a helpful personal assistant equipped with long-term and short-term memory.
+    You are Vanshu, a helpful personal assistant equipped with long-term and short-term memory.
     Assist the user in their day-to-day tasks by understanding their needs and preferences.
     
-    You have access to the following subagents:
-    1. planner_subagent: Analyzes prompts to decide if they run synchronously or as a Celery task chain.
-    2. research_subagent: Conducts web research to gather live data.
-    3. document_subagent: Generates documents (PDFs, presentations, Word files>).
-    4. document_upload_agent: Uploads local files to Cloudflare R2 storage.
-    5. communication_agent: Reads, drafts, and sends emails via Gmail.
-    """,
+    CRITICAL ORCHESTRATION RULES:
+    1. Before taking any action on a user request, you MUST delegate the request to `planner_subagent` to analyze it and produce a DynamicWorkflowPlan.
+    2. Once `planner_subagent` returns the plan:
+       - If the execution mode is "async_chain", you MUST immediately call the `execute_dynamic_workflow` tool with the plan and return the result to the user. Do NOT attempt to run any other subagent steps.
+       - If the execution mode is "sync", execute the steps returned in the plan sequentially.
+    """
+    ,
     capabilities=[
         SubAgents(agents=[
             SubAgent(planner_subagent),
@@ -127,6 +129,8 @@ async def execute_dynamic_workflow(ctx: RunContext[AgentDeps], plan_json: str) -
             user_id=UUID(ctx.deps.user_id), 
             task_name="Report Generation Pipeline"
         )
+        ctx.deps.active_task_id=str(result.id)
+        ctx.deps.execution_mode="async_chain"
         
         return f"Successfully queued background Celery task pipeline. Chain Task ID: {result.id}"
         return f"Successfully queued background Celery task pipeline. Chain Task ID: {result.id}"
@@ -138,44 +142,45 @@ async def execute_dynamic_workflow(ctx: RunContext[AgentDeps], plan_json: str) -
         )
         return f"Sync Mode Selected. Please execute the following steps:\n{steps_str}"
 
-r2 = R2Storage(
-    access_key=setting.CLOUDFLARE_ACCESS_KEY_ID,
-    secret_key=setting.CLOUDFLARE_SECRET_ACCESS_KEY_ID,
-    endpoint_url=setting.CLOUDFLARE_R2_ENDPOINT,
-    bucket=setting.CLOUDFLARE_R2_BUCKET,
-    public_url=setting.CLOUDFLARE_R2_PUBLIC_URL,
-)
-redis_mem = RedisMemory()
-qdrant_mem = QdrantMemory()
+# r2 = R2Storage(
+#     access_key=setting.CLOUDFLARE_ACCESS_KEY_ID,
+#     secret_key=setting.CLOUDFLARE_SECRET_ACCESS_KEY_ID,
+#     endpoint_url=setting.CLOUDFLARE_R2_ENDPOINT,
+#     bucket=setting.CLOUDFLARE_R2_BUCKET,
+#     public_url=setting.CLOUDFLARE_R2_PUBLIC_URL,
+# )
+# redis_mem = RedisMemory()
+# qdrant_mem = QdrantMemory()
     
-deps = AgentDeps(
-    gmail_auth=GmailAuth(),
-    r2_storage=r2,
-    redis_mem=redis_mem,
-    qdrant_mem=qdrant_mem,
-    user_id="user-sumit-001",
-    session_id="session-xyz-987"
-)
+# deps = AgentDeps(
+#     gmail_auth=GmailAuth(),
+#     r2_storage=r2,
+#     redis_mem=redis_mem,
+#     qdrant_mem=qdrant_mem,
+#     user_id=str(uuid4()),
+#     session_id=str(uuid4())
+# )
 
-async def run_personal_agent():
-    async with personal_agent.iter("check if i had received any mail from skylar henderson in last 1 week if received pleasy give me the summary what it says", deps=deps) as nodes:
-        async for node in nodes:
-            if isinstance(node,UserPromptNode):
-                print(f"[Initialising] user prompt: {node.user_prompt}")
-            elif isinstance(node,ModelRequestNode):
-                print(f"[Calling Model] {node.request.parts}")
-            elif isinstance(node,CallToolsNode):
-                for part in node.model_response.parts:
-                    if isinstance(part,ToolCallPart):
-                        print(f"[Calling Tool] {part.tool_name} with args: {part.args}")
-                # print(f"[Calling Tool] {node.model_response.model_name} with args: {node.model_response.parts}")
-            elif isinstance(node,End):
-                print(f"[Output] result : {node.data.output}")
+# async def run_personal_agent():
+
+#     async with personal_agent.iter("check if i had received any mail from skylar henderson in last 1 week if received pleasy give me the summary what it says", deps=deps) as nodes:
+#         async for node in nodes:
+#             if isinstance(node,UserPromptNode):
+#                 print(f"[Initialising] user prompt: {node.user_prompt}")
+#             elif isinstance(node,ModelRequestNode):
+#                 print(f"[Calling Model] {node.request.parts}")
+#             elif isinstance(node,CallToolsNode):
+#                 for part in node.model_response.parts:
+#                     if isinstance(part,ToolCallPart):
+#                         print(f"[Calling Tool] {part.tool_name} with args: {part.args}")
+#                 # print(f"[Calling Tool] {node.model_response.model_name} with args: {node.model_response.parts}")
+#             elif isinstance(node,End):
+#                 print(f"[Output] result : {node.data.output}")
                 
 
 
 
-asyncio.run(run_personal_agent())
+# asyncio.run(run_personal_agent())
 
 
 

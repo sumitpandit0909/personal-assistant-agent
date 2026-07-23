@@ -1,12 +1,24 @@
-from pandas.core.ops.docstrings import key
 from qdrant_client import QdrantClient
 from qdrant_client.models import VectorParams,PointStruct,Filter,Distance,FieldCondition,MatchValue
 from sentence_transformers import SentenceTransformer
 from config.settings import setting
 from uuid import uuid4
 from typing import List
+from openrouter import OpenRouter
+from config.settings import setting
 
 
+
+openrouter_app = OpenRouter(setting.OPENROUTER_API_KEY)
+
+def create_embeddings(text):
+    response = openrouter_app.embeddings.generate(
+        input=text,
+        model="nvidia/llama-nemotron-embed-vl-1b-v2:free",
+        dimensions=786,
+
+    )
+    return response.data[0].embedding
 
 class QdrantMemory:
     def __init__(self):
@@ -14,21 +26,21 @@ class QdrantMemory:
             url=setting.QDRANT_URL,
             api_key=setting.QDRANT_API_KEY
         )
-        self.embedding = SentenceTransformer("all-mpnet-base-v2")
-        self.collection_name="User-memory"
+        self.embedding = create_embeddings
+        self.collection_name="User-memory-v2"
 
-        if not self.collection_exists(self.collection_name):
+        if not self.client.collection_exists(self.collection_name):
             self.client.create_collection(
                 collection_name=self.collection_name,
                 vectors_config=VectorParams(
-                    size=768,
+                    size=786,
                     distance=Distance.COSINE
                 )
             )
     
     def store_fact(self, user_id: str, fact_text: str,session_id:str):
 
-        vector = self.embedding.encode(fact_text).tolist()
+        vector = self.embedding(fact_text)
         point_id = str(uuid4())
         
         self.client.upsert(
@@ -47,7 +59,7 @@ class QdrantMemory:
         )
 
     def recall_facts(self, user_id:str,query:str,top_k:int=5)-> str:
-        query_vector= self.embedding.encode(query).tolist()
+        query_vector= self.embedding(query)
         results = self.client.query_points(
             collection_name=self.collection_name,
             query=query_vector,

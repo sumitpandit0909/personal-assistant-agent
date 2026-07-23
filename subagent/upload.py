@@ -118,5 +118,6 @@ document_upload_agent = Agent[R2Storage,SubagentResponse](
         1. Call 'upload_file_to_r2' providing the absolute file_path of the local file.
         2. Take the exact public URL returned by the 'upload_file_to_r2' tool call and return it in your SubagentResponse `url` field.
         3. Set `success=True` and provide a descriptive `message`.
+        4. Never upload .md file
         """
 )

@@ -5,6 +5,7 @@ from config.settings import model
 
 class CeleryTaskCall(BaseModel):
     task_name: Literal[
+        "tasks.research_task",
         "tasks.create_pdf_task",
         "tasks.create_docx_task",
         "tasks.render_slides_task",
@@ -47,7 +48,11 @@ planner_subagent = Agent[None, DynamicWorkflowPlan](
     description="Analyzes user requests and generates a structured, dynamic execution plan (sync or async_chain>).",
     output_type=DynamicWorkflowPlan,
     instructions="""
-    You are an expert AI Planner and Workflow Orchestrator.
+    CRITICAL: 
+    - Any request requiring document creation (PDF, DOCX, slides), file uploading, or sending generated reports MUST be executed via "async_chain" using Celery tasks.
+    - Any simple interactive request (checking emails, summarizations, direct Q&A) MUST run synchronously ("sync") using local subagent tools.
+    
+    You are Luna, an expert AI Planner and Workflow Orchestrator.
     Your goal is to analyze user prompts and generate a structured DynamicWorkflowPlan.
     
     1. **Decide the Execution Mode**:
@@ -55,18 +60,49 @@ planner_subagent = Agent[None, DynamicWorkflowPlan](
        - Choose `"async_chain"` for heavy, multi-step tasks (e.g. generating reports, uploading files, sending emails).
        
     2. **If `"sync"` is selected**:
-       - Populate `sync_steps` with sequential subagent assignments to complete the request step-by-step.
-       - Keep `task_chain` empty.
+       - Populate `sync_steps` with sequential subagent assignments. Keep `task_chain` empty.
        
     3. **If `"async_chain"` is selected**:
-       - Build an ordered list of tasks in `task_chain` using these available tasks:
-         * `tasks.create_pdf_task`: Renders a professional PDF from markdown.
-         * `tasks.create_docx_task`: Compiles a Word (.docx) document from markdown.
-         * `tasks.render_slides_task`: Creates Marp presentation slides.
-         * `tasks.upload_r2_task`: Uploads a file and returns its public URL.
-         * `tasks.send_email_task`: Sends an email to recipients.
-         * `tasks.draft_email_task`: Saves a draft email.
+       - Build an ordered list of tasks in `task_chain`. 
        - **Important Chaining Rule**: The output of task N is automatically passed as the first positional argument of task N+1.
-         * Do NOT include parameters in `kwargs` that will be automatically passed forward from the previous task (such as the `file_path` for R2 upload or the `url` for sending emails). Only include constant arguments (like `recipient_list`, `subject`, `filename`, `markdown_content`).
+         * Do NOT include parameters in `kwargs` that will be automatically passed forward from the previous task (such as the `markdown_content` for PDF generation, `file_path` for R2 upload, or the `url` for sending emails).
+       
+       **Celery Tasks Reference Guide**:
+       Use ONLY these exact task names and keyword arguments:
+       
+       * `tasks.research_task`:
+         - Description: Conducts web research. Returns markdown content.
+         - Allowed `kwargs`: `{"query": "<research topic>"}`
+         
+       * `tasks.create_pdf_task`:
+         - Description: Renders a PDF from markdown. Returns local pdf file path.
+         - Allowed `kwargs`: 
+           * If preceded by `tasks.research_task`: `{"filename": "<name.pdf>"}` (Do NOT pass `markdown_content`; it is passed automatically from `research_task`).
+           * If NOT preceded by `tasks.research_task`: `{"filename": "<name.pdf>", "markdown_content": "<markdown content>"}`
+         
+       * `tasks.create_docx_task`:
+         - Description: Renders a Word file from markdown. Returns local docx file path.
+         - Allowed `kwargs`:
+           * If preceded by `tasks.research_task`: `{"filename": "<name.docx>"}` (Do NOT pass `markdown_content`).
+           * If NOT preceded by `tasks.research_task`: `{"filename": "<name.docx>", "markdown_content": "<markdown content>"}`
+         
+       * `tasks.render_slides_task`:
+         - Description: Renders a presentation from markdown. Returns local ppt/pdf path.
+         - Allowed `kwargs`:
+           * If preceded by `tasks.research_task`: `{"filename": "<name.pdf>"}` (Do NOT pass `markdown_content`).
+           * If NOT preceded by `tasks.research_task`: `{"filename": "<name.pdf>", "markdown_content": "<markdown content>"}`
+         
+       * `tasks.upload_r2_task`:
+         - Description: Uploads local file to cloud. Returns public download URL.
+         - Allowed `kwargs`: `{}` (Do NOT pass `file_path`; it is passed automatically from the document creation task).
+         
+       * `tasks.send_email_task`:
+         - Description: Sends an email with the R2 link.
+         - Allowed `kwargs`: `{}` (Receives `UploadOutputData` automatically from the previous task, which contains the email body, to, and subject from research).
+         
+       * `tasks.draft_email_task`:
+         - Description: Drafts an email with the R2 link.
+         - Allowed `kwargs`: `{}` (Receives `UploadOutputData` automatically).
     """
+
 )
