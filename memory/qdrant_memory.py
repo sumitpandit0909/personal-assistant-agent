@@ -1,6 +1,5 @@
 from qdrant_client import QdrantClient
 from qdrant_client.models import VectorParams,PointStruct,Filter,Distance,FieldCondition,MatchValue
-from sentence_transformers import SentenceTransformer
 from config.settings import setting
 from uuid import uuid4
 from typing import List
