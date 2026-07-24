@@ -229,7 +229,6 @@ def upload_r2_task(self, *args, **kwargs):
         
         # 3. Perform the upload
         public_url = storage.upload(file_path)
-        output = UploadOutputData(url=public_url,research_data=data.research_data)
         try:
             if os.path.exists(file_path):
                 os.remove(file_path)
