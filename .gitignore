@@ -14,7 +14,6 @@ client_secret*.json
 token.json
 # Generated output files
 *.pdf
-*.docx
 *.html
 temp_*.md
 tmp.md
