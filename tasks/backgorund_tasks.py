@@ -121,7 +121,7 @@ def create_docx_task(self,*args, **kwargs):
             output_path,
             "--reference-doc=custom_reference.docx"
         ]
-        result = subprocess.run(cmd, capture_output=True, text=True, shell=True)
+        result = subprocess.run(cmd, capture_output=True, text=True, shell=False)
 
         if os.path.exists(tmp_file):
             os.remove(tmp_file)
@@ -174,7 +174,7 @@ def render_slide_task(self,*args, **kwargs):
             f.write(markdown_content)
 
         cmd = ["npx", "-y", "@marp-team/marp-cli@latest", temp_md_path, "-o", abs_path]
-        result = subprocess.run(cmd, capture_output=True, text=True, shell=True)
+        result = subprocess.run(cmd, capture_output=True, text=True, shell=False)
 
         if os.path.exists(temp_md_path):
             os.remove(temp_md_path)
@@ -230,6 +230,12 @@ def upload_r2_task(self, *args, **kwargs):
         # 3. Perform the upload
         public_url = storage.upload(file_path)
         output = UploadOutputData(url=public_url,research_data=data.research_data)
+        try:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+                print(f"DEBUG: Cleaned up local file: {file_path}")
+        except Exception as e:
+            print(f"[Cleanup Warning] Failed to delete local file {file_path}: {e}")
         # 4. Save success status and public URL link
         update_task_status(self.request.id, status="completed", result="Upload successful", link=public_url)
         if research_data:
